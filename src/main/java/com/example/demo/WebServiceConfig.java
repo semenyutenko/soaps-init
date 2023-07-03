@@ -1,26 +1,23 @@
 package com.example.demo;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletPath;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.ws.config.annotation.EnableWs;
 import org.springframework.ws.config.annotation.WsConfigurerAdapter;
-import org.springframework.ws.context.MessageContext;
-import org.springframework.ws.server.EndpointAdapter;
-import org.springframework.ws.server.endpoint.adapter.DefaultMethodEndpointAdapter;
-import org.springframework.ws.server.endpoint.adapter.MessageEndpointAdapter;
-import org.springframework.ws.server.endpoint.adapter.PayloadEndpointAdapter;
+import org.springframework.ws.server.EndpointInterceptor;
+import org.springframework.ws.soap.SoapVersion;
+import org.springframework.ws.soap.saaj.SaajSoapMessageFactory;
+import org.springframework.ws.soap.server.endpoint.interceptor.PayloadValidatingInterceptor;
 import org.springframework.ws.transport.http.MessageDispatcherServlet;
-import org.springframework.ws.wsdl.WsdlDefinition;
 import org.springframework.ws.wsdl.wsdl11.DefaultWsdl11Definition;
-import org.springframework.ws.wsdl.wsdl11.Wsdl4jDefinition;
 import org.springframework.xml.xsd.SimpleXsdSchema;
 import org.springframework.xml.xsd.XsdSchema;
+
+import java.util.List;
 
 @EnableWs
 @Configuration
@@ -34,12 +31,6 @@ public class WebServiceConfig extends WsConfigurerAdapter {
         return new ServletRegistrationBean(servlet, "/ws/*");
     }
 
-    /*
-    @Bean
-    public EndpointAdapter messageEndpointAdapter() {
-        return new PayloadEndpointAdapter();
-    }*/
-
     @Bean
     public DispatcherServletPath path() {
         return () -> "/ws";
@@ -52,11 +43,31 @@ public class WebServiceConfig extends WsConfigurerAdapter {
         wsdl11Definition.setLocationUri("/ws");
         wsdl11Definition.setTargetNamespace("http://com.example.demo");
         wsdl11Definition.setSchema(countriesSchema);
+        wsdl11Definition.setCreateSoap12Binding(true);
+        wsdl11Definition.setCreateSoap11Binding(false);
         return wsdl11Definition;
     }
 
     @Bean
     public XsdSchema countriesSchema() {
         return new SimpleXsdSchema(new ClassPathResource("schema/countries.xsd"));
+    }
+
+    @Bean
+    public SaajSoapMessageFactory messageFactory() {
+        SaajSoapMessageFactory messageFactory = new SaajSoapMessageFactory();
+        messageFactory.setSoapVersion(SoapVersion.SOAP_12);
+        return messageFactory;
+    }
+
+    @Override
+    public void addInterceptors(List<EndpointInterceptor> interceptors) {
+        PayloadValidatingInterceptor validatingInterceptor = new PayloadValidatingInterceptor();
+        validatingInterceptor.setValidateRequest(true);
+        validatingInterceptor.setValidateResponse(true);
+        validatingInterceptor.setXsdSchema(countriesSchema());
+        interceptors.add(validatingInterceptor);
+
+        super.addInterceptors(interceptors);
     }
 }
