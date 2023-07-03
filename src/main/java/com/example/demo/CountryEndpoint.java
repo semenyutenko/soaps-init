@@ -15,10 +15,12 @@ public class CountryEndpoint {
     private static final String NAMESPACE_URI = "http://com.example.demo";
 
     private final CountryRepository repository;
+    private final CalculatorClient client;
 
     @Autowired
-    public CountryEndpoint(CountryRepository repository) {
+    public CountryEndpoint(CountryRepository repository, CalculatorClient client) {
         this.repository = repository;
+        this.client = client;
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "CountryRequest")
@@ -37,7 +39,7 @@ public class CountryEndpoint {
         List<Country> countries = repository.findAllByNames(request.getCountryName());
         response.setTotalPopulation(countries.stream()
                 .mapToInt(Country::getPopulation)
-                .sum());
+                .reduce(0, client::calculateAdd));
         return response;
     }
 }
